@@ -1,0 +1,119 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Bill | Inventor App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="purchase-bill">
+  <div class="app-shell">
+    <header class="sub-hero">
+      <div>
+        <p class="eyebrow">Purchase Bill</p>
+        <h1>Import Bill Items</h1>
+        <p class="hero-copy">Add multiple products from one purchase bill. Existing products are matched and quantity is increased instead of creating duplicates.</p>
+      </div>
+      <nav class="top-nav">
+        <a href="index.html">Home</a>
+        <a href="add-product.html">Add Product</a>
+        <a href="inventory.html">View Inventory</a>
+        <a href="update-product.html">Update Product</a>
+      </nav>
+    </header>
+
+    <main class="page-stack">
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Bill Details</h2>
+          <p>Use SKU when possible for the best duplicate matching. If SKU is empty, matching falls back to product name.</p>
+        </div>
+
+        <form id="purchaseBillForm" class="purchase-bill-form">
+          <div class="bill-meta-grid">
+            <label>
+              Bill number
+              <input type="text" name="billNumber" placeholder="BILL-1023">
+            </label>
+
+            <label>
+              Supplier / Vendor
+              <input type="text" name="vendor" placeholder="ABC Traders">
+            </label>
+
+            <label>
+              Bill date
+              <input type="date" name="billDate">
+            </label>
+
+            <label>
+              Extra bill cost
+              <input type="number" name="extraCost" min="0" step="0.01" placeholder="0.00">
+            </label>
+          </div>
+
+          <div class="bill-lines-header">
+            <div>
+              <h3>Bill Items</h3>
+              <p class="mini-copy">Each row can create or merge a product.</p>
+            </div>
+            <button id="addBillRowBtn" class="ghost" type="button">Add another row</button>
+          </div>
+
+          <div id="billLines" class="bill-lines"></div>
+
+          <div class="full-span form-actions">
+            <button type="submit" class="primary">Save bill to inventory</button>
+            <button type="reset" class="ghost">Clear</button>
+          </div>
+        </form>
+
+        <p id="billMessage" class="status-banner"></p>
+      </section>
+    </main>
+  </div>
+
+  <template id="billRowTemplate">
+    <div class="bill-line-row">
+      <label>
+        Product name
+        <input type="text" data-field="name" placeholder="Wireless Mouse">
+      </label>
+      <label>
+        SKU / Code
+        <input type="text" data-field="sku" placeholder="WM-1001">
+      </label>
+      <label>
+        Quantity
+        <input type="number" data-field="quantity" min="1" step="1" placeholder="1">
+      </label>
+      <label>
+        Cost price
+        <input type="number" data-field="costPrice" min="0" step="0.01" placeholder="0.00">
+      </label>
+      <label>
+        MRP
+        <input type="number" data-field="mrp" min="0" step="0.01" placeholder="0.00">
+      </label>
+      <label>
+        Selling price
+        <input type="number" data-field="sellingPrice" min="0" step="0.01" placeholder="0.00">
+      </label>
+      <label>
+        Warranty
+        <input type="text" data-field="warranty" placeholder="12 months">
+      </label>
+      <label>
+        Brand
+        <input type="text" data-field="brand" placeholder="Brand name">
+      </label>
+      <button class="remove-row-btn" type="button">Remove</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

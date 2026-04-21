@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Product | Inventor App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="update">
+  <div class="app-shell">
+    <header class="sub-hero">
+      <div>
+        <p class="eyebrow">Update Product</p>
+        <h1>Edit Existing Product</h1>
+        <p class="hero-copy">Choose a product, update warranty, photos, MRP, selling price, and protected cost price.</p>
+      </div>
+      <nav class="top-nav">
+        <a href="index.html">Home</a>
+        <a href="add-product.html">Add Product</a>
+        <a href="purchase-bill.html">Purchase Bill</a>
+        <a href="inventory.html">View Inventory</a>
+      </nav>
+    </header>
+
+    <main class="page-stack">
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Update Product</h2>
+          <p>Select one saved product, edit it, and save your changes.</p>
+        </div>
+
+        <div id="updateEmptyState" class="empty-state">
+          <p>Add at least one product before using update.</p>
+        </div>
+
+        <div id="updateWorkspace" class="update-workspace">
+          <label>
+            Choose product
+            <select id="updateProductSelect"></select>
+          </label>
+
+          <form id="updateForm" class="product-form">
+            <label>
+              Product name
+              <input type="text" name="name" id="updateName" required placeholder="Wireless Mouse">
+            </label>
+
+            <label>
+              SKU / Code
+              <input type="text" name="sku" id="updateSku" placeholder="WM-1001">
+            </label>
+
+            <label>
+              Category
+              <input type="text" name="category" id="updateCategory" placeholder="Electronics">
+            </label>
+
+            <label>
+              Brand
+              <input type="text" name="brand" id="updateBrand" placeholder="LogiTech">
+            </label>
+
+            <label>
+              Purchase date
+              <input type="date" name="purchaseDate" id="updatePurchaseDate">
+            </label>
+
+            <label>
+              Sale date
+              <input type="date" name="saleDate" id="updateSaleDate">
+            </label>
+
+            <label>
+              Warranty
+              <input type="text" name="warranty" id="updateWarranty" placeholder="12 months">
+            </label>
+
+            <label>
+              Quantity
+              <input type="number" name="quantity" id="updateQuantity" min="0" step="1" placeholder="1">
+            </label>
+
+            <label>
+              MRP
+              <input type="number" name="mrp" id="updateMrp" min="0" step="0.01" placeholder="0.00">
+            </label>
+
+            <label>
+              Discount %
+              <input type="number" name="discount" id="updateDiscount" min="0" max="100" step="0.01" placeholder="0">
+            </label>
+
+            <label>
+              Selling price
+              <input type="number" name="sellingPrice" id="updateSellingPrice" min="0" step="0.01" placeholder="0.00">
+            </label>
+
+            <label>
+              Cost price
+              <input type="number" name="costPrice" id="updateCostPrice" min="0" step="0.01" placeholder="0.00">
+            </label>
+
+            <label class="full-span">
+              Photo URLs
+              <textarea name="photoUrls" id="updatePhotoUrls" rows="3" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"></textarea>
+            </label>
+
+            <label class="full-span">
+              Upload new photos
+              <input id="updatePhotosInput" type="file" accept="image/*" multiple>
+            </label>
+
+            <label class="full-span">
+              Notes
+              <textarea name="notes" id="updateNotes" rows="4" placeholder="Color, supplier, size, batch, remarks..."></textarea>
+            </label>
+
+            <div class="full-span form-actions">
+              <button type="submit" class="primary">Update product</button>
+            </div>
+          </form>
+        </div>
+
+        <p id="updateMessage" class="status-banner"></p>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
