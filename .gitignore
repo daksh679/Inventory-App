@@ -1,2 +1,8 @@
 node_modules
 dist
+.next
+.env
+.env.local
+.env.production
+auth.db
+auth.db-journal
