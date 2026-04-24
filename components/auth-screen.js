@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -22,8 +22,13 @@ export default function AuthScreen({ initialMode }) {
   const [mode, setMode] = useState(initialMode);
   const [forms, setForms] = useState(initialForms);
   const [feedback, setFeedback] = useState({ error: "", success: "" });
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMode(initialMode);
+    setFeedback({ error: "", success: "" });
+  }, [initialMode]);
 
   function updateField(formMode, field, value) {
     setForms((current) => ({
@@ -40,11 +45,16 @@ export default function AuthScreen({ initialMode }) {
     setFeedback({ error: "", success: "" });
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    setFeedback({ error: "", success: "" });
+    if (isSubmitting) {
+      return;
+    }
 
-    startTransition(async () => {
+    setFeedback({ error: "", success: "" });
+    setIsSubmitting(true);
+
+    try {
       if (mode === "signup") {
         const payload = forms.signup;
         const { error } = await authClient.signUp.email({
@@ -76,7 +86,14 @@ export default function AuthScreen({ initialMode }) {
 
       router.push("/dashboard");
       router.refresh();
-    });
+    } catch (error) {
+      setFeedback({
+        error: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        success: "",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -162,8 +179,8 @@ export default function AuthScreen({ initialMode }) {
             />
           </label>
 
-          <button className="button primary wide" disabled={isPending} type="submit">
-            {isPending ? "Please wait..." : mode === "signup" ? "Create Account" : "Sign In"}
+          <button className="button primary wide" disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Please wait..." : mode === "signup" ? "Create Account" : "Sign In"}
           </button>
 
           {feedback.error ? <p className="form-feedback error">{feedback.error}</p> : null}
