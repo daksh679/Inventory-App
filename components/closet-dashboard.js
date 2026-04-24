@@ -33,6 +33,16 @@ function valueOrBlank(value) {
   return value || undefined;
 }
 
+async function parseJsonResponse(response) {
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Request failed.");
+  }
+
+  return payload;
+}
+
 function readPixel(data, width, x, y) {
   const index = (y * width + x) * 4;
   return { r: data[index], g: data[index + 1], b: data[index + 2] };
@@ -237,9 +247,6 @@ function OutfitSlot({ item, options, slot, onSelect }) {
 }
 
 export default function ClosetDashboard({ session }) {
-  const itemsKey = `closet-daily-items:${session.user.id}`;
-  const outfitKey = `closet-daily-outfit:${session.user.id}`;
-
   const [wardrobeItems, setWardrobeItems] = useState([]);
   const [outfitSelection, setOutfitSelection] = useState({});
   const [form, setForm] = useState(INITIAL_FORM);
@@ -248,25 +255,47 @@ export default function ClosetDashboard({ session }) {
   const [rawPhotoData, setRawPhotoData] = useState("");
   const [cleanPhotoData, setCleanPhotoData] = useState("");
   const [status, setStatus] = useState({ message: "", error: false });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [isSavingOutfit, setIsSavingOutfit] = useState(false);
   const deferredSearch = useDeferredValue(searchFilter);
 
   useEffect(() => {
-    try {
-      setWardrobeItems(JSON.parse(localStorage.getItem(itemsKey) || "[]"));
-      setOutfitSelection(JSON.parse(localStorage.getItem(outfitKey) || "{}"));
-    } catch {
-      setWardrobeItems([]);
-      setOutfitSelection({});
+    let cancelled = false;
+
+    async function loadWardrobe() {
+      try {
+        const [itemsPayload, outfitPayload] = await Promise.all([
+          fetch("/api/wardrobe/items", { cache: "no-store" }).then(parseJsonResponse),
+          fetch("/api/wardrobe/outfit", { cache: "no-store" }).then(parseJsonResponse),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setWardrobeItems(itemsPayload.items || []);
+        setOutfitSelection(outfitPayload.outfit || {});
+      } catch (error) {
+        if (!cancelled) {
+          setStatus({
+            message: error instanceof Error ? error.message : "Unable to load your wardrobe.",
+            error: true,
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [itemsKey, outfitKey]);
 
-  useEffect(() => {
-    localStorage.setItem(itemsKey, JSON.stringify(wardrobeItems));
-  }, [itemsKey, wardrobeItems]);
+    loadWardrobe();
 
-  useEffect(() => {
-    localStorage.setItem(outfitKey, JSON.stringify(outfitSelection));
-  }, [outfitKey, outfitSelection]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = deferredSearch.trim().toLowerCase();
@@ -279,6 +308,33 @@ export default function ClosetDashboard({ session }) {
   }, [categoryFilter, deferredSearch, wardrobeItems]);
 
   const selectedOutfitCount = SLOT_ORDER.filter((slot) => outfitSelection[slot.key]).length;
+
+  async function persistOutfit(selection, successMessage = "") {
+    setIsSavingOutfit(true);
+
+    try {
+      const payload = await fetch("/api/wardrobe/outfit", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selection),
+      }).then(parseJsonResponse);
+
+      setOutfitSelection(payload.outfit || {});
+
+      if (successMessage) {
+        setStatus({ message: successMessage, error: false });
+      }
+    } catch (error) {
+      setStatus({
+        message: error instanceof Error ? error.message : "Unable to save outfit.",
+        error: true,
+      });
+    } finally {
+      setIsSavingOutfit(false);
+    }
+  }
 
   async function handlePhotoChange(event) {
     const file = event.target.files?.[0];
@@ -315,8 +371,12 @@ export default function ClosetDashboard({ session }) {
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+
+    if (isSavingItem) {
+      return;
+    }
 
     if (!rawPhotoData && !cleanPhotoData) {
       setStatus({ message: "A clothing photo is required.", error: true });
@@ -328,40 +388,64 @@ export default function ClosetDashboard({ session }) {
       return;
     }
 
-    const item = {
-      id: crypto.randomUUID(),
-      name: form.name.trim(),
-      category: form.category,
-      type: form.type.trim(),
-      color: form.color.trim(),
-      occasion: form.occasion,
-      season: form.season,
-      notes: form.notes.trim(),
-      image: cleanPhotoData || rawPhotoData,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      setIsSavingItem(true);
+      const payload = await fetch("/api/wardrobe/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...form,
+          imageData: cleanPhotoData || rawPhotoData,
+        }),
+      }).then(parseJsonResponse);
 
-    setWardrobeItems((current) => [item, ...current]);
-    setForm(INITIAL_FORM);
-    setRawPhotoData("");
-    setCleanPhotoData("");
-    setStatus({ message: "Saved to your wardrobe.", error: false });
-    event.currentTarget.reset();
+      setWardrobeItems((current) => [payload.item, ...current]);
+      setForm(INITIAL_FORM);
+      setRawPhotoData("");
+      setCleanPhotoData("");
+      setStatus({ message: "Saved to your wardrobe.", error: false });
+      event.currentTarget.reset();
+    } catch (error) {
+      setStatus({
+        message: error instanceof Error ? error.message : "Unable to save item.",
+        error: true,
+      });
+    } finally {
+      setIsSavingItem(false);
+    }
   }
 
   function assignToOutfit(item) {
-    setOutfitSelection((current) => ({ ...current, [item.category]: item.id }));
+    const next = { ...outfitSelection, [item.category]: item.id };
+    setOutfitSelection(next);
+    persistOutfit(next, "Outfit updated.");
   }
 
-  function deleteItem(itemId) {
-    setWardrobeItems((current) => current.filter((item) => item.id !== itemId));
-    setOutfitSelection((current) => {
-      const next = { ...current };
-      Object.keys(next).forEach((slotKey) => {
-        if (next[slotKey] === itemId) next[slotKey] = "";
+  async function deleteItem(itemId) {
+    try {
+      await fetch(`/api/wardrobe/items/${itemId}`, {
+        method: "DELETE",
+      }).then(parseJsonResponse);
+
+      setWardrobeItems((current) => current.filter((item) => item.id !== itemId));
+      setOutfitSelection((current) => {
+        const next = { ...current };
+        Object.keys(next).forEach((slotKey) => {
+          if (next[slotKey] === itemId) {
+            next[slotKey] = "";
+          }
+        });
+        return next;
       });
-      return next;
-    });
+      setStatus({ message: "Item deleted.", error: false });
+    } catch (error) {
+      setStatus({
+        message: error instanceof Error ? error.message : "Unable to delete item.",
+        error: true,
+      });
+    }
   }
 
   function generateOutfit() {
@@ -371,6 +455,13 @@ export default function ClosetDashboard({ session }) {
       next[slot.key] = options.length ? sample(options).id : "";
     });
     setOutfitSelection(next);
+    persistOutfit(next, "Outfit suggestion saved.");
+  }
+
+  function handleOutfitSelection(slotKey, itemId) {
+    const next = { ...outfitSelection, [slotKey]: itemId };
+    setOutfitSelection(next);
+    persistOutfit(next, "Outfit updated.");
   }
 
   return (
@@ -388,11 +479,11 @@ export default function ClosetDashboard({ session }) {
         <div className="hero-actions">
           <div className="metric-card">
             <span>Saved items</span>
-            <strong>{wardrobeItems.length}</strong>
+            <strong>{isLoading ? "..." : wardrobeItems.length}</strong>
           </div>
           <div className="metric-card">
             <span>Current outfit</span>
-            <strong>{selectedOutfitCount}/4</strong>
+            <strong>{isLoading ? "..." : `${selectedOutfitCount}/4`}</strong>
           </div>
           <SignOutButton />
         </div>
@@ -519,15 +610,17 @@ export default function ClosetDashboard({ session }) {
             </div>
 
             <div className="button-row">
-              <button className="button primary" type="submit">
-                Save Item
+              <button className="button primary" disabled={isSavingItem} type="submit">
+                {isSavingItem ? "Saving..." : "Save Item"}
               </button>
               <button className="button ghost" onClick={handleReprocess} type="button">
                 Reprocess Photo
               </button>
             </div>
 
-            <p className={`form-feedback${status.error ? " error" : ""}`}>{status.message}</p>
+            <p className={`form-feedback${status.error ? " error" : ""}`}>
+              {isLoading ? "Loading your wardrobe..." : status.message}
+            </p>
           </form>
         </article>
 
@@ -558,7 +651,9 @@ export default function ClosetDashboard({ session }) {
             />
           </div>
 
-          {filteredItems.length ? (
+          {isLoading ? (
+            <div className="empty-state">Loading wardrobe...</div>
+          ) : filteredItems.length ? (
             <div className="inventory-grid">
               {filteredItems.map((item) => (
                 <InventoryCard item={item} key={item.id} onAssign={assignToOutfit} onDelete={deleteItem} />
@@ -579,10 +674,19 @@ export default function ClosetDashboard({ session }) {
             <h2>Assemble today’s look</h2>
           </div>
           <div className="button-row">
-            <button className="button primary" onClick={generateOutfit} type="button">
-              Suggest Outfit
+            <button className="button primary" disabled={isLoading || isSavingOutfit} onClick={generateOutfit} type="button">
+              {isSavingOutfit ? "Saving..." : "Suggest Outfit"}
             </button>
-            <button className="button ghost" onClick={() => setOutfitSelection({})} type="button">
+            <button
+              className="button ghost"
+              disabled={isLoading || isSavingOutfit}
+              onClick={() => {
+                const cleared = {};
+                setOutfitSelection(cleared);
+                persistOutfit(cleared, "Outfit cleared.");
+              }}
+              type="button"
+            >
               Clear
             </button>
           </div>
@@ -597,7 +701,7 @@ export default function ClosetDashboard({ session }) {
               <OutfitSlot
                 item={selectedItem}
                 key={slot.key}
-                onSelect={(slotKey, itemId) => setOutfitSelection((current) => ({ ...current, [slotKey]: itemId }))}
+                onSelect={handleOutfitSelection}
                 options={options}
                 slot={slot}
               />
